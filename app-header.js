@@ -15,6 +15,11 @@ const header = document.querySelector('.app-header');
 
 // Function to handle scroll events
 function handleScroll() {
+    // Don't process scroll events if a modal is open
+    if (document.querySelector('.modal.active')) {
+        return;
+    }
+    
     const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
     
     // Check if we've scrolled enough to trigger a change

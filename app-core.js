@@ -337,8 +337,13 @@ function openModal(modalId) {
             document.body.appendChild(backdrop);
         }
         
-        // Show modal
+        // Reset any previous transitions and ensure display is set before adding active class
         modal.style.display = 'flex';
+        
+        // Force a reflow to ensure the browser processes the display change
+        void modal.offsetWidth;
+        
+        // Now add the active class to trigger the transition
         modal.classList.add('active');
         
         // Focus on first input if present
@@ -377,8 +382,15 @@ function closeModal(modalId) {
     console.log(`Closing modal: ${modalId}`);
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.style.display = 'none';
+        // First remove the active class to trigger transition
         modal.classList.remove('active');
+        
+        // Then hide the modal after transition completes
+        setTimeout(() => {
+            if (!modal.classList.contains('active')) {
+                modal.style.display = 'none';
+            }
+        }, 300); // Match this to your CSS transition time
     }
     
     // Remove backdrop
@@ -386,11 +398,51 @@ function closeModal(modalId) {
     if (backdrop) {
         backdrop.remove();
     }
+    
+    // Ensure any modal-specific cleanup is performed
+    if (modalId === 'theme-modal') {
+        // Reset any theme-specific state if needed
+    }
 }
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     loadData();
+    
+    // Add event listeners for theme modal buttons
+    const themeToggleButton = document.getElementById('theme-toggle');
+    const settingsLink = document.getElementById('settings-link');
+    const themeModal = document.getElementById('theme-modal');
+    
+    if (themeToggleButton) {
+        themeToggleButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showThemeModal();
+        });
+    }
+    
+    if (settingsLink) {
+        settingsLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showThemeModal();
+        });
+    }
+    
+    // Function to directly show the theme modal
+    function showThemeModal() {
+        if (themeModal) {
+            // Reset modal state
+            themeModal.style.display = 'flex';
+            // Force a reflow
+            void themeModal.offsetWidth;
+            // Show the modal
+            themeModal.classList.add('active');
+            // Update theme selection
+            updateThemeSelection();
+        }
+    }
     
     // Restore the saved theme from localStorage
     const savedTheme = localStorage.getItem('appTheme');
