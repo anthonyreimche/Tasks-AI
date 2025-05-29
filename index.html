@@ -42,8 +42,6 @@
         <div class="tab-bar">
             <div class="tab active" data-tab="tasks" onclick="switchTab('tasks')">Tasks</div>
             <div class="tab" data-tab="grocery" onclick="switchTab('grocery')">Groceries</div>
-            <div class="tab" data-tab="projects" onclick="switchTab('projects')">Projects</div>
-            <div class="tab" data-tab="passwords" onclick="switchTab('passwords')">Passwords</div>
             <div class="tab" data-tab="insights" onclick="switchTab('insights')">Insights</div>
         </div>
         
@@ -59,12 +57,13 @@
             <button class="fab" onclick="openAddGroceryModal()">+</button>
         </div>
         
-        <div id="projects-content" class="tab-content">
+        <!-- Projects and Passwords tabs hidden for now -->
+        <div id="projects-content" class="tab-content" style="display: none;">
             <div id="projects-container"></div>
             <button class="fab" onclick="openAddProjectModal()">+</button>
         </div>
         
-        <div id="passwords-content" class="tab-content">
+        <div id="passwords-content" class="tab-content" style="display: none;">
             <div id="passwords-container"></div>
             <button class="fab" onclick="openAddPasswordModal()">+</button>
         </div>
@@ -411,6 +410,7 @@
     <script src="app-projects.js"></script>
     <script src="app-passwords.js"></script>
     <script src="app-insights.js"></script>
+    <script src="app-header.js"></script>
     
     <!-- Fallback to display body if CSS takes too long -->
     <script>
