@@ -1,5 +1,8 @@
 // Render grocery list
 function renderGrocery() {
+    // Fix any data inconsistencies before rendering
+    fixGroceryData();
+    
     const groceryContainer = document.getElementById('grocery-container');
     
     // Log all grocery items for debugging
@@ -183,6 +186,12 @@ function renderInStockItems(items) {
 
 // Grocery functions
 function toggleGroceryItem(itemId) {
+    // Convert itemId to number if it's a string (to match how tasks work)
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
     const item = appData.groceries.find(g => g.id === itemId);
     if (item) {
         // Toggle the in-stock status
@@ -226,6 +235,11 @@ function toggleGroceryItem(itemId) {
 }
 
 function deleteGroceryItem(itemId, showUndo = false) {
+    // Convert itemId to number if it's a string (to match how tasks work)
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
     // Remove the item from appData
     const deletedItem = appData.groceries.find(g => g.id === itemId);
     appData.groceries = appData.groceries.filter(g => g.id !== itemId);
@@ -245,6 +259,12 @@ function deleteGroceryItem(itemId, showUndo = false) {
 }
 
 function addToShoppingList(itemId) {
+    // Convert itemId to number if it's a string (to match how tasks work)
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
     const item = appData.groceries.find(g => g.id === itemId);
     if (item) {
         item.inStock = false;
@@ -280,8 +300,36 @@ function addToShoppingList(itemId) {
 
 // Edit grocery item
 function editGroceryItem(itemId) {
-    const item = appData.groceries.find(g => g.id === parseInt(itemId));
-    if (!item) return;
+    console.log('Editing grocery item:', itemId);
+    
+    // Make sure we have a valid numeric ID
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    if (isNaN(itemId)) {
+        console.error('Invalid grocery item ID (NaN):', itemId);
+        return;
+    }
+    
+    // Ensure data is fixed before trying to find the item
+    fixGroceryData();
+    
+    // Find the item with the matching id
+    const item = appData.groceries.find(g => g.id === itemId);
+    
+    // Handle case where item is not found
+    if (!item) {
+        console.error('Grocery item not found:', itemId);
+        
+        // If we just added this item, it might not be in the array yet
+        // Let's check if there are any items and use the first one as a fallback
+        if (appData.groceries.length > 0) {
+            console.log('Using first grocery item as fallback');
+            return editGroceryItem(appData.groceries[0].id);
+        }
+        return;
+    }
     
     // Populate the edit form
     document.getElementById('edit-grocery-id').value = item.id;
@@ -337,6 +385,12 @@ function saveEditedGroceryItem(event) {
 }
 
 function markAsUsed(itemId) {
+    // Convert itemId to number if it's a string (to match how tasks work)
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
     const item = appData.groceries.find(g => g.id === itemId);
     if (item) {
         // Explicitly set to boolean values
@@ -377,42 +431,50 @@ function trackGroceryUsage(itemName) {
 }
 
 function addGroceryItem(event) {
+    // Prevent the default form submission
     event.preventDefault();
+    
+    // Get the form element
+    const form = document.getElementById('add-grocery-form');
+    
+    // Validate that we have at least a name
+    const nameInput = document.getElementById('grocery-name');
+    if (!nameInput || !nameInput.value.trim()) {
+        console.error('Grocery name is required');
+        return; // Don't proceed if no name
+    }
     
     // Create the new item with explicit boolean values
     const item = {
-        id: Date.now(),
-        name: document.getElementById('grocery-name').value,
+        id: Date.now(), // Use numeric ID like tasks do
+        name: nameInput.value.trim(),
         category: document.getElementById('grocery-category').value || 'Other',
         expiryDate: document.getElementById('grocery-expiry').value || null,
         quantity: document.getElementById('grocery-quantity').value || null,
-        inStock: true, // New items are in stock by default
+        inStock: document.getElementById('grocery-in-stock').checked, // Use the actual checkbox value
         addedToList: false
     };
     
     console.log('Adding new grocery item:', item);
     
+    // Add the item to the data
     appData.groceries.push(item);
+    
+    // Save data first
     saveData();
-    renderGrocery();
-    closeModal('grocery-modal');
-    document.getElementById('add-grocery-form').reset();
+    
+    // Close the modal and reset the form
+    closeModal('add-grocery-modal');
+    form.reset();
+    
+    // Render after a slight delay to ensure data is properly saved
+    setTimeout(() => {
+        console.log('Rendering grocery list after adding item');
+        renderGrocery();
+    }, 100);
 }
 
-// Edit grocery item
-function editGroceryItem(itemId) {
-    const item = appData.groceries.find(g => g.id === itemId);
-    if (!item) return;
-    
-    // Populate the edit form
-    document.getElementById('edit-grocery-id').value = item.id;
-    document.getElementById('edit-grocery-name').value = item.name;
-    document.getElementById('edit-grocery-expiry').value = item.expiryDate || '';
-    document.getElementById('edit-grocery-quantity').value = item.quantity || '';
-    
-    // Show the edit modal
-    openModal('edit-grocery-modal');
-}
+// The duplicate editGroceryItem function has been removed
 
 // Save edited grocery item
 function saveEditedGroceryItem(event) {
@@ -454,15 +516,38 @@ function fixGroceryData() {
     let dataFixed = false;
     
     if (!appData.groceries) {
-        return;
+        appData.groceries = [];
+        dataFixed = true;
     }
     
     // Make sure all grocery items have proper boolean values for inStock
-    appData.groceries.forEach(item => {
+    // and ensure all IDs are numeric
+    appData.groceries.forEach((item, index) => {
         // Convert any non-boolean inStock values to proper booleans
         if (typeof item.inStock !== 'boolean') {
             item.inStock = Boolean(item.inStock);
             dataFixed = true;
+        }
+        
+        // Ensure ID is a number
+        if (item.id === undefined || item.id === null || isNaN(Number(item.id))) {
+            // Generate a new numeric ID based on timestamp with index offset to ensure uniqueness
+            item.id = Date.now() + index;
+            dataFixed = true;
+            console.log('Generated new numeric ID for item:', item.name, item.id);
+        } else if (typeof item.id !== 'number') {
+            // Convert string IDs to numbers if possible
+            const numId = Number(item.id);
+            if (!isNaN(numId)) {
+                item.id = numId;
+                dataFixed = true;
+                console.log('Converted ID to number:', item.id);
+            } else {
+                // If conversion fails, generate a new numeric ID
+                item.id = Date.now() + index;
+                dataFixed = true;
+                console.log('Replaced invalid ID with numeric ID:', item.id);
+            }
         }
     });
     

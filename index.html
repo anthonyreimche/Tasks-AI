@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://*.gstatic.com https://accounts.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com https://www.gstatic.com https://www.google.com; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://apis.google.com https://www.google.com; frame-src https://accounts.google.com https://content.googleapis.com https://www.gstatic.com https://*.googleapis.com;">
     <title>AI Tasks Manager</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
+    <!-- Using an emoji as favicon to avoid file not found errors -->
     <style>
         /* Hide body until CSS is loaded to prevent FOUC */
         body { display: none; }
@@ -28,11 +29,23 @@
                     <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2V4a8 8 0 1 0 0 16z"/>
                 </svg>
             </button>
-            <div id="account-button" class="account-button">
+            <!-- Google Sign-In Button (shown when not signed in) -->
+            <button id="google-signin-button" class="google-signin-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                <span>Sign in with Google</span>
+            </button>
+            
+            <!-- User Account Button (shown when signed in) -->
+            <div id="account-button" class="account-button" style="display: none;">
                 <div class="account-avatar">U</div>
                 <div id="account-dropdown-content" class="account-dropdown-content">
-                    <a href="#" id="settings-link">Settings</a>
-                    <a href="#" onclick="clearAllData()">Reset App</a>
+                    <!-- Account email will be inserted here when signed in -->
+                    <!-- Account options will be dynamically populated by JavaScript -->
                 </div>
             </div>
         </div>
@@ -267,7 +280,7 @@
     <div id="add-grocery-modal" class="modal">
         <div class="modal-content">
             <h2>Add Grocery Item</h2>
-            <form id="add-grocery-form" onsubmit="addGroceryItem(event)">
+            <form id="add-grocery-form">
                 <div class="form-group">
                     <label for="grocery-name">Item Name</label>
                     <input type="text" id="grocery-name" required>
@@ -279,6 +292,19 @@
                 <div class="form-group">
                     <label for="grocery-expiry">Expiry Date</label>
                     <input type="date" id="grocery-expiry">
+                </div>
+                <div class="form-group">
+                    <label for="grocery-category">Category</label>
+                    <select id="grocery-category">
+                        <option value="Produce">Produce</option>
+                        <option value="Dairy">Dairy</option>
+                        <option value="Meat">Meat</option>
+                        <option value="Pantry">Pantry</option>
+                        <option value="Frozen">Frozen</option>
+                        <option value="Snacks">Snacks</option>
+                        <option value="Beverages">Beverages</option>
+                        <option value="Other">Other</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>
@@ -411,6 +437,11 @@
     <script src="app-passwords.js"></script>
     <script src="app-insights.js"></script>
     <script src="app-header.js"></script>
+    <script src="app-auth.js"></script>
+    
+    <!-- Google API Script -->
+    <script src="https://apis.google.com/js/api.js" async defer onload="onGoogleApiLoad()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <!-- Fallback to display body if CSS takes too long -->
     <script>

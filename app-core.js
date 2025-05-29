@@ -212,7 +212,13 @@ function renderCurrentTab() {
 }
 
 // Utility functions
+// Generate a unique ID for new items
+function generateUniqueId() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+}
+
 function formatDate(dateString) {
+    if (!dateString) return 'No date';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -405,9 +411,34 @@ function closeModal(modalId) {
     }
 }
 
+// Helper function to handle grocery item clicks
+function handleGroceryItemClick(event) {
+    // Find the closest grocery-item parent
+    const groceryItem = event.target.closest('.grocery-item');
+    if (!groceryItem) return;
+    
+    // Get the item ID from the data attribute - use the raw string value
+    const itemId = groceryItem.dataset.id;
+    if (!itemId) return;
+    
+    // Only handle clicks on the main content, not on buttons or other interactive elements
+    if (event.target.tagName === 'BUTTON' || 
+        event.target.closest('button') || 
+        event.target.classList.contains('grocery-actions')) {
+        return;
+    }
+    
+    // Call the edit function with the string ID
+    console.log('Clicked on grocery item:', itemId);
+    editGroceryItem(itemId);
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     loadData();
+    
+    // Add a global click handler for grocery items
+    document.addEventListener('click', handleGroceryItemClick);
     
     // Add event listeners for theme modal buttons
     const themeToggleButton = document.getElementById('theme-toggle');

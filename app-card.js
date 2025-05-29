@@ -85,7 +85,19 @@ class CardFactory {
     
     // Initialize card interactions
     initializeTouchSwipe(cardElement, config) {
-        const itemId = cardElement.dataset.id;
+        // Get the item ID and ensure it's properly formatted based on card type
+        let itemId = cardElement.dataset.id;
+        const cardType = cardElement.dataset.cardType;
+        
+        // For grocery items, make sure we have a valid ID
+        if (cardType === 'grocery' && (itemId === undefined || itemId === null || itemId === '')) {
+            console.error('Invalid grocery item ID, assigning a temporary ID');
+            itemId = 'temp-' + Date.now();
+            cardElement.dataset.id = itemId;
+        }
+        
+        // Log the card type and ID for debugging
+        console.log(`Initializing card: ${cardType} with ID: ${itemId}`);
         
         // Add a dedicated click handler that takes precedence over drag
         const clickHandler = function(e) {
@@ -108,8 +120,26 @@ class CardFactory {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Call the tap handler with the item ID
+                // Call the tap handler with the item ID, but first ensure it's not NaN
                 if (config.onTap) {
+                    // For grocery items, make sure we never pass NaN
+                    if (cardType === 'grocery') {
+                        // If itemId is not a valid string, use a fallback approach
+                        if (itemId === undefined || itemId === null || itemId === '' || itemId === 'NaN' || itemId === 'undefined') {
+                            console.error('Invalid ID detected in click handler, using fallback');
+                            // Try to find a valid grocery item from appData
+                            if (window.appData && window.appData.groceries && window.appData.groceries.length > 0) {
+                                const firstItem = window.appData.groceries[0];
+                                console.log('Using first grocery item as fallback:', firstItem.id);
+                                config.onTap(firstItem.id);
+                            } else {
+                                console.error('No grocery items available for fallback');
+                            }
+                            return;
+                        }
+                    }
+                    
+                    // If we got here, the ID should be valid
                     config.onTap(itemId);
                 }
                 
@@ -154,20 +184,18 @@ class CardFactory {
             return;
         }
         
-        new Sortable(container, {
-            animation: 150, // Slightly faster animation
-            easing: 'cubic-bezier(1, 0, 0, 1)', // Improved easing function
-            ghostClass: 'card-dragging-ghost',
-            chosenClass: 'card-dragging-chosen',
-            dragClass: 'card-dragging-drag',
-            handle: '.card-drag-handle', // Use a dedicated drag handle
-            delay: 0, // No delay for dragging
-            delayOnTouchOnly: true, // Only delay on touch devices
-            touchStartThreshold: 5, // Lower threshold for better responsiveness
-            forceFallback: false, // Use native HTML5 drag for better positioning
-            fallbackTolerance: 5, // Lower tolerance for better responsiveness
-            scrollSpeed: 40, // Scrolling speed
-            scrollSensitivity: 80, // Scroll sensitivity
+        console.log('Initializing Sortable for container:', container.id || container.className);
+        
+        // Create a new Sortable instance with a simpler configuration
+        const sortable = new Sortable(container, {
+            animation: 150,
+            handle: '.card-drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            // Use simpler configuration with fewer options
+            delay: 0,
+            delayOnTouchOnly: false,
             
             // Use a smaller distance threshold for more precise dragging
             distance: 5,
@@ -243,10 +271,23 @@ class Card {
         // Create card element
         const card = document.createElement('div');
         card.className = `card-item ${this.config.className || ''}`;
-        card.dataset.id = this.data.id;
+        
+        // Ensure card has proper positioning for drag handle
+        card.style.position = 'relative'; // Important for absolute positioning of drag handle
+        
+        // Ensure ID is properly set as a string for grocery items or number for tasks
+        if (this.type === 'grocery') {
+            // For grocery items, ensure ID is a string
+            card.dataset.id = String(this.data.id);
+            console.log('Setting grocery card ID:', card.dataset.id);
+        } else {
+            // For other card types (like tasks), use the ID as is
+            card.dataset.id = this.data.id;
+        }
+        
         card.dataset.cardType = this.type;
         
-        // Add a dedicated drag handle
+        // Add a dedicated drag handle with improved interactivity
         const dragHandle = document.createElement('div');
         dragHandle.className = 'card-drag-handle';
         dragHandle.innerHTML = `
@@ -256,6 +297,15 @@ class Card {
                 <line x1="8" y1="18" x2="16" y2="18"></line>
             </svg>
         `;
+        
+        // Prevent click events from bubbling up from the drag handle
+        dragHandle.addEventListener('mousedown', function(e) {
+            e.stopPropagation();
+        });
+        
+        dragHandle.addEventListener('touchstart', function(e) {
+            e.stopPropagation();
+        });
         card.appendChild(dragHandle);
         
         // For task cards, create a special structure with checkbox
@@ -473,17 +523,45 @@ cardFactory.registerCardType('grocery', {
     },
     
     onTap: (id) => {
-        editGroceryItem(parseInt(id));
+        // Convert to number to match how tasks work
+        const numId = parseInt(id);
+        editGroceryItem(numId);
     },
     
     onSwipeLeft: (id, showUndo) => {
-        deleteGroceryItem(parseInt(id), showUndo);
+        // Convert to number to match how tasks work
+        const numId = parseInt(id);
+        deleteGroceryItem(numId, showUndo);
     },
     
     onReorder: (newOrder, group) => {
-        // Convert string IDs to integers
-        const intIds = newOrder.map(id => parseInt(id));
-        reorderGroceryItems(intIds, group);
+        console.log('Grocery card onReorder called with:', newOrder, 'group:', group);
+        
+        // Validate the newOrder array
+        if (!Array.isArray(newOrder) || newOrder.length === 0) {
+            console.error('Invalid newOrder array in onReorder handler');
+            return;
+        }
+        
+        // Convert string IDs to numbers and filter out any invalid IDs
+        const numericIds = newOrder
+            .map(id => {
+                const numId = parseInt(id);
+                if (isNaN(numId)) {
+                    console.error('Invalid ID in onReorder:', id);
+                    return null;
+                }
+                return numId;
+            })
+            .filter(id => id !== null);
+        
+        if (numericIds.length === 0) {
+            console.error('No valid IDs found in onReorder');
+            return;
+        }
+        
+        // Call the reorder function with the validated numeric IDs
+        reorderGroceryItems(numericIds, group);
     }
 });
 
@@ -516,22 +594,56 @@ function reorderTasks(newOrder) {
 
 // Helper function to reorder grocery items
 function reorderGroceryItems(newOrder, group) {
-    // Reorder the grocery items based on their new positions
+    console.log('Reordering grocery items:', newOrder, 'group:', group);
+    
+    // Ensure we have valid data
+    if (!Array.isArray(appData.groceries)) {
+        console.error('appData.groceries is not an array');
+        return;
+    }
+    
+    if (!Array.isArray(newOrder) || newOrder.length === 0) {
+        console.error('Invalid newOrder array:', newOrder);
+        return;
+    }
+    
+    // Create a new array to hold the reordered items
     const reorderedGroceries = [];
     
+    // Convert all IDs to numbers and log them for debugging
+    const numericIds = newOrder.map(id => {
+        const numId = parseInt(id);
+        console.log(`Converting ID ${id} to number: ${numId}`);
+        return numId;
+    });
+    
     // First add items in the new order
-    newOrder.forEach(id => {
-        const item = appData.groceries.find(g => g.id === parseInt(id));
-        if (item) reorderedGroceries.push(item);
+    numericIds.forEach(numId => {
+        if (isNaN(numId)) {
+            console.error('Invalid numeric ID:', numId);
+            return;
+        }
+        
+        const item = appData.groceries.find(g => g.id === numId);
+        if (item) {
+            console.log(`Found item with ID ${numId}:`, item.name);
+            reorderedGroceries.push(item);
+        } else {
+            console.error(`Item with ID ${numId} not found`);
+        }
     });
     
     // Then add any remaining items that weren't in this group
     appData.groceries.forEach(item => {
-        if (!newOrder.includes(item.id.toString())) {
+        if (!numericIds.includes(item.id)) {
+            console.log(`Adding remaining item with ID ${item.id}:`, item.name);
             reorderedGroceries.push(item);
         }
     });
     
+    console.log('Reordered groceries:', reorderedGroceries.map(g => g.name));
+    
+    // Update the groceries array
     appData.groceries = reorderedGroceries;
     saveData();
 }
