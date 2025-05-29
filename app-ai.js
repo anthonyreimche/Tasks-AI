@@ -1089,6 +1089,9 @@ function startAIAnalysis() {
 
 // Function to render grocery-specific AI suggestions
 function renderGroceryAISuggestions(container) {
+    console.log('Rendering grocery AI suggestions');
+    console.log('Container:', container);
+    console.log('All suggestions:', appData.suggestions);
     if (!appData.suggestions || appData.suggestions.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -1120,6 +1123,9 @@ function renderGroceryAISuggestions(container) {
         if (suggestion.type === 'grocery-expiring') {
             icon = '⚠️';
             metaInfo = `<div class="suggestion-meta">Expiring soon</div>`;
+        } else if (suggestion.type === 'grocery-expiring-repurchase') {
+            icon = '🛒';
+            metaInfo = `<div class="suggestion-meta">Add to shopping list</div>`;
         } else if (suggestion.type === 'grocery-expired') {
             icon = '❌';
             metaInfo = `<div class="suggestion-meta">Expired item</div>`;
@@ -1264,6 +1270,8 @@ function analyzeGroceryUsagePatterns() {
 
 // Analyze groceries that are about to expire
 function analyzeExpiringGroceries() {
+    console.log('Analyzing expiring groceries');
+    console.log('Current groceries:', appData.groceries);
     if (!appData.groceries || !Array.isArray(appData.groceries)) {
         return;
     }
@@ -1275,15 +1283,25 @@ function analyzeExpiringGroceries() {
     const expiryThresholdDays = appData.groceryAiPreferences?.expiryThresholdDays || 5;
     
     // Find items that will expire soon based on user preferences
+    console.log('Expiry threshold days:', expiryThresholdDays);
+    
     const expiringItems = appData.groceries.filter(item => {
-        if (!item.expiryDate || !item.inStock) return false;
+        if (!item.expiryDate || !item.inStock) {
+            console.log(`Item ${item.name} skipped: expiryDate=${item.expiryDate}, inStock=${item.inStock}`);
+            return false;
+        }
         
         const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
+        console.log(`Item ${item.name} has ${daysUntilExpiry} days until expiry`);
         
         // Use the user's preference for the upper threshold
         // Items with <= 3 days are already in the "expiring soon" category in the UI
-        return daysUntilExpiry > 3 && daysUntilExpiry <= expiryThresholdDays;
+        const isExpiring = daysUntilExpiry > 3 && daysUntilExpiry <= expiryThresholdDays;
+        console.log(`Item ${item.name} expiring status: ${isExpiring}`);
+        return isExpiring;
     });
+    
+    console.log('Expiring items found:', expiringItems.length, expiringItems);
     
     // Create suggestions for items that will expire soon
     expiringItems.forEach(item => {
@@ -1296,6 +1314,7 @@ function analyzeExpiringGroceries() {
         
         const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
         
+        // Suggestion to use the item soon or freeze it
         suggestions.push({
             id: Date.now() + Math.random(),
             type: 'grocery-expiring',
@@ -1305,6 +1324,21 @@ function analyzeExpiringGroceries() {
             data: {
                 groceryId: item.id,
                 action: 'use-soon'
+            }
+        });
+        
+        // Add a new suggestion to add the item to shopping list for repurchase
+        suggestions.push({
+            id: Date.now() + Math.random() + 1,
+            type: 'grocery-expiring-repurchase',
+            groceryId: item.id,
+            title: 'Add to Shopping List',
+            description: `${item.name} will expire in ${daysUntilExpiry} days. Would you like to add it to your shopping list to repurchase?`,
+            data: {
+                groceryId: item.id,
+                groceryName: item.name,
+                quantity: item.quantity,
+                action: 'add-to-list'
             }
         });
     });
@@ -1636,7 +1670,7 @@ function handleGrocerySuggestionClick(suggestion) {
                 showSyncStatus('Item removed from shopping list!', true);
             }
         }
-    } else if (type === 'grocery-repurchase' || type === 'grocery-shopping-pattern') {
+    } else if (type === 'grocery-expiring-repurchase' || type === 'grocery-repurchase' || type === 'grocery-shopping-pattern') {
         const { groceryName, action, quantity } = data;
         
         if (action === 'add-to-list') {
@@ -1654,9 +1688,15 @@ function handleGrocerySuggestionClick(suggestion) {
             saveData();
             renderGrocery();
             
-            const message = type === 'grocery-repurchase' 
-                ? 'Item added to shopping list based on purchase history!' 
-                : 'Item added to shopping list based on shopping patterns!';
+            let message = 'Item added to shopping list!';
+            
+            if (type === 'grocery-repurchase') {
+                message = 'Item added to shopping list based on purchase history!';
+            } else if (type === 'grocery-shopping-pattern') {
+                message = 'Item added to shopping list based on shopping patterns!';
+            } else if (type === 'grocery-expiring-repurchase') {
+                message = 'Expiring item added to shopping list for repurchase!';
+            }
                 
             showSyncStatus(message, true);
             
