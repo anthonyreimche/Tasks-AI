@@ -909,7 +909,9 @@ function initializeTouchSwipe() {
             lastX: 0,
             lastY: 0,
             threshold: 80,
-            isSwiping: false
+            isSwiping: false,
+            isClick: true,  // Track if this is a click or a swipe
+            startTime: 0    // Track when the touch started for timing
         };
         
         // Touch start handler
@@ -922,6 +924,8 @@ function initializeTouchSwipe() {
             mc.deltaX = 0;
             mc.deltaY = 0;
             mc.isSwiping = true;
+            mc.isClick = true;  // Assume it's a click until proven otherwise
+            mc.startTime = Date.now();
             mc.element.classList.add('swiping');
             
             // Disable transitions during swipe
@@ -938,27 +942,38 @@ function initializeTouchSwipe() {
             mc.lastX = point.clientX;
             mc.lastY = point.clientY;
             
+            // If significant movement, mark as not a click
+            // Use a more generous threshold for mobile (15px instead of 5px)
+            if (Math.abs(mc.deltaX) > 15 || Math.abs(mc.deltaY) > 15) {
+                mc.isClick = false;
+            }
+            
             // If more vertical than horizontal movement, allow scrolling
             if (Math.abs(mc.deltaY) > Math.abs(mc.deltaX) * 1.5) {
                 return;
             }
             
-            // Prevent scrolling
-            if (ev.cancelable) {
+            // Prevent scrolling only if horizontal movement is significant
+            if (Math.abs(mc.deltaX) > 10 && ev.cancelable) {
                 ev.preventDefault();
             }
             
-            // Move the card
-            mc.element.style.transform = `translateX(${mc.deltaX}px)`;
-            
-            // Fade out as it moves
-            const opacity = Math.max(0.4, 1 - (Math.abs(mc.deltaX) / 300));
-            mc.element.style.opacity = opacity;
+            // Move the card only if horizontal movement is significant
+            if (Math.abs(mc.deltaX) > 5) {
+                mc.element.style.transform = `translateX(${mc.deltaX}px)`;
+                
+                // Fade out as it moves
+                const opacity = Math.max(0.4, 1 - (Math.abs(mc.deltaX) / 300));
+                mc.element.style.opacity = opacity;
+            }
         }
         
         // Touch end handler
-        function handleEnd() {
+        function handleEnd(ev) {
             if (!mc.isSwiping) return;
+            
+            // Calculate touch duration
+            const touchDuration = Date.now() - mc.startTime;
             
             // Re-enable transitions
             mc.element.style.transition = '';
@@ -988,10 +1003,14 @@ function initializeTouchSwipe() {
                     mc.element.classList.remove('returning');
                 }, 300);
                 
-                // Only handle as click if it was a very small movement (essentially a tap)
-                // This prevents cards from being accepted after a failed swipe
-                if (Math.abs(mc.deltaX) < 5 && Math.abs(mc.deltaY) < 5) {
-                    handleSuggestionClick(null, mc.element);
+                // Consider it a click if:
+                // 1. It's marked as a click (minimal movement) OR
+                // 2. The touch duration is short (< 300ms) AND movement is relatively small (< 20px)
+                if (mc.isClick || (touchDuration < 300 && Math.abs(mc.deltaX) < 20 && Math.abs(mc.deltaY) < 20)) {
+                    // Add a small delay to prevent accidental double-processing
+                    setTimeout(() => {
+                        handleSuggestionClick(null, mc.element);
+                    }, 10);
                 }
             }
             
@@ -1012,11 +1031,21 @@ function initializeTouchSwipe() {
             mc.element.classList.remove('swiping');
         }
         
-        // Add event listeners
+        // Add event listeners with proper options
+        // Use { passive: true } for touchstart to improve performance
         mc.element.addEventListener('touchstart', handleStart, { passive: true });
+        // Use { passive: false } for touchmove to allow preventDefault when needed
         mc.element.addEventListener('touchmove', handleMove, { passive: false });
         mc.element.addEventListener('touchend', handleEnd);
         mc.element.addEventListener('touchcancel', handleCancel);
+        
+        // Add a direct click handler for better tap detection on mobile
+        mc.element.addEventListener('click', function(ev) {
+            // If we recently ended a swipe, don't process the click
+            if (!mc.isSwiping && mc.isClick) {
+                handleSuggestionClick(ev, mc.element);
+            }
+        });
         
         // Mouse events for desktop testing
         mc.element.addEventListener('mousedown', function(ev) {
@@ -1077,14 +1106,16 @@ function startAIAnalysis() {
     
     // Task analysis
     analyzeTaskPatterns();
-    estimateTaskDurations();
-    suggestTaskScheduling();
-    detectOverlappingTasks();
+}
+
+function estimateTaskDurations() {
+    // Estimate how long tasks might take based on title and category
+    console.log('Estimating task durations');
     
-    // Grocery analysis
-    analyzeExpiringGroceries();
-    analyzeShoppingList();
-    analyzeGroceryPatterns();
+    // Implementation placeholder - would analyze task names and categories
+    // to estimate how long each task might take
+    
+    // No suggestions created for now as this is a placeholder
 }
 
 // Function to render grocery-specific AI suggestions
@@ -1092,6 +1123,7 @@ function renderGroceryAISuggestions(container) {
     console.log('Rendering grocery AI suggestions');
     console.log('Container:', container);
     console.log('All suggestions:', appData.suggestions);
+    
     if (!appData.suggestions || appData.suggestions.length === 0) {
         container.innerHTML = `
             <div class="empty-state">

@@ -108,6 +108,12 @@ class CardFactory {
                 return true; // Allow the event to bubble up to the checkbox's own handler
             }
             
+            // Skip if the click is on a grocery checkbox
+            if (e.target.classList.contains('grocery-checkbox') || 
+                e.target.closest('.grocery-checkbox-wrapper')) {
+                return false;
+            }
+            
             // Only trigger if it's not from a child element with its own click handler
             if (e.target === this || 
                 e.target.classList.contains('card-content') || 
@@ -308,63 +314,67 @@ class Card {
         });
         card.appendChild(dragHandle);
         
-        // For task cards, create a special structure with checkbox
-        if (this.type === 'task') {
+        // For task cards or grocery cards, create a special structure with checkbox
+        if (this.type === 'task' || (this.type === 'grocery')) {
             // Create a relative positioned container for proper positioning
             const cardContainer = document.createElement('div');
-            cardContainer.className = 'task-card-container';
+            cardContainer.className = this.type === 'task' ? 'task-card-container' : 'grocery-card-container';
             card.appendChild(cardContainer);
             
             // Add checkbox wrapper inside the container
-            const checkboxWrapper = document.createElement('div');
-            checkboxWrapper.className = 'task-checkbox-wrapper';
-            cardContainer.appendChild(checkboxWrapper);
-            
-            // Add checkbox
-            const checkbox = document.createElement('div');
-            checkbox.className = `task-checkbox ${this.data.completed ? 'completed' : ''}`;
-            checkbox.dataset.taskId = this.data.id;
-            checkbox.onclick = (event) => toggleTaskCompletion(event, this.data.id);
-            checkboxWrapper.appendChild(checkbox);
+            if (this.type === 'task' || (this.type === 'grocery' && !this.data.inStock)) {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = this.type === 'task' ? 'task-checkbox-wrapper' : 'grocery-checkbox-wrapper';
+                cardContainer.appendChild(checkboxWrapper);
+                
+                // Add checkbox
+                const checkbox = document.createElement('div');
+                if (this.type === 'task') {
+                    checkbox.className = `task-checkbox ${this.data.completed ? 'completed' : ''}`;
+                    checkbox.dataset.taskId = this.data.id;
+                    checkbox.onclick = (event) => toggleTaskCompletion(event, this.data.id);
+                } else {
+                    checkbox.className = 'grocery-checkbox';
+                    checkbox.dataset.groceryId = this.data.id;
+                    
+                    // Use a more robust event handling approach with capture phase
+                    checkbox.addEventListener('click', function(event) {
+                        // Stop propagation in both capture and bubble phases
+                        event.stopImmediatePropagation();
+                        event.preventDefault();
+                        toggleGroceryItem(event, this.dataset.groceryId);
+                        return false;
+                    }, true);
+                    
+                    // Add additional touch event handling for mobile with capture phase
+                    checkbox.addEventListener('touchstart', function(event) {
+                        event.stopImmediatePropagation();
+                        event.preventDefault();
+                    }, true);
+                    
+                    checkbox.addEventListener('touchend', function(event) {
+                        event.stopImmediatePropagation();
+                        event.preventDefault();
+                        toggleGroceryItem(event, this.dataset.groceryId);
+                        return false;
+                    }, true);
+                }
+                checkboxWrapper.appendChild(checkbox);
+            }
             
             // Create content container
             const content = document.createElement('div');
-            content.className = 'card-content task-content';
+            content.className = this.type === 'task' ? 'card-content task-content' : 'card-content grocery-content';
             cardContainer.appendChild(content);
             
             // Add title
             if (this.config.renderTitle) {
                 const title = document.createElement('div');
-                title.className = 'card-title task-title';
-                title.classList.toggle('completed', this.data.completed);
-                title.innerHTML = this.config.renderTitle(this.data);
-                content.appendChild(title);
-            } else {
-                // Fallback title
-                const title = document.createElement('div');
-                title.className = 'card-title task-title';
-                title.textContent = this.data.title || this.data.name || 'Card';
-                content.appendChild(title);
-            }
-            
-            // Add metadata
-            if (this.config.renderMeta) {
-                const meta = document.createElement('div');
-                meta.className = 'card-meta';
-                meta.innerHTML = this.config.renderMeta(this.data);
-                content.appendChild(meta);
-            }
-        } else {
-            // Standard card layout for non-task cards
-            // Create content container
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            card.appendChild(content);
-            
-            // Add title
-            if (this.config.renderTitle) {
-                const title = document.createElement('div');
                 title.className = 'card-title';
+                if (this.type === 'task') {
+                    title.className += ' task-title';
+                    title.classList.toggle('completed', this.data.completed);
+                }
                 title.innerHTML = this.config.renderTitle(this.data);
                 content.appendChild(title);
             } else {
@@ -467,8 +477,29 @@ cardFactory.registerCardType('grocery', {
     hintText: 'Tap to edit • Drag to reorder',
     
     renderTitle: (data) => {
-        // Don't add 'out-of-stock' class to shopping list items
-        return `<div>${data.name} ${data.quantity ? `<span class="quantity">(${data.quantity})</span>` : ''}</div>`;
+        // Format quantity and unit display
+        let quantityText = '';
+        if (data.quantity) {
+            if (data.unit) {
+                quantityText = `<span class="quantity">(${data.quantity} ${data.unit})</span>`;
+            } else {
+                quantityText = `<span class="quantity">(${data.quantity})</span>`;
+            }
+        }
+        
+        // Create quantity control buttons
+        const plusButton = `<button type="button" class="grocery-plus-btn" data-grocery-id="${data.id}">+</button>`;
+        const minusButton = `<button type="button" class="grocery-minus-btn" data-grocery-id="${data.id}">-</button>`;
+        console.log(`Rendering quantity buttons for grocery item: ${data.id} - ${data.name}`);
+        
+        return `<div class="grocery-title-container">
+            <span class="grocery-name">${data.name}</span>
+            ${quantityText}
+            <div class="grocery-quantity-controls">
+                ${minusButton}
+                ${plusButton}
+            </div>
+        </div>`;
     },
     
     renderMeta: (data) => {

@@ -200,6 +200,59 @@ a {
     text-decoration: none;
 }
 
+/* Search Bar Styles */
+.search-container {
+    position: relative;
+    margin: 10px 16px 16px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 40px 10px 16px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background-color: var(--surface);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 50%;
+    opacity: 0.7;
+    transition: var(--transition);
+}
+
+.search-clear-btn:hover {
+    opacity: 1;
+    background-color: var(--primary-light);
+}
+
+.dark-theme .search-input {
+    background-color: #2d3748;
+    color: #f1f5f9;
+    border: 1px solid rgba(51, 65, 85, 0.8);
+}
+
 /* Header */
 .app-header {
     display: flex;
@@ -646,6 +699,146 @@ a {
     border-bottom: 2px solid white;
     border-right: 2px solid white;
     margin-top: -2px;
+}
+
+/* Grocery Checkbox Styles */
+.grocery-card-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.grocery-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 16px;
+    padding-right: 8px;
+    position: relative;
+    z-index: 10;
+}
+
+.grocery-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: var(--transition);
+    background-color: var(--surface-glass);
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.grocery-checkbox:hover {
+    border-color: var(--secondary);
+    transform: scale(1.1);
+}
+
+.grocery-checkbox::after {
+    content: '🛒';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    opacity: 0.5;
+}
+
+/* Grocery title container */
+.grocery-title-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    width: 100%;
+}
+
+.grocery-name {
+    flex: 1;
+}
+
+/* Grocery quantity controls container */
+.grocery-quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Shared styles for quantity buttons */
+.grocery-minus-btn,
+.grocery-plus-btn {
+    display: inline-flex !important; /* Force display */
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    color: white;
+    border: none;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    z-index: 10;
+    padding: 0;
+    line-height: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add shadow for depth */
+    position: relative; /* Ensure proper positioning */
+    opacity: 1 !important; /* Force visibility */
+}
+
+/* Minus button specific styles */
+.grocery-minus-btn {
+    background-color: #e74c3c; /* Bright red for better visibility */
+}
+
+/* Plus button specific styles */
+.grocery-plus-btn {
+    background-color: #27ae60; /* Green for plus button */
+}
+
+/* Minus button hover and active states */
+.grocery-minus-btn:hover {
+    background-color: #c0392b; /* Darker red on hover */
+    transform: scale(1.1);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.grocery-minus-btn:active {
+    transform: scale(0.95);
+    background-color: #a93226; /* Even darker red when clicked */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Plus button hover and active states */
+.grocery-plus-btn:hover {
+    background-color: #219653; /* Darker green on hover */
+    transform: scale(1.1);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.grocery-plus-btn:active {
+    transform: scale(0.95);
+    background-color: #1e8449; /* Even darker green when clicked */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Make sure the minus button is visible */
+.grocery-card .card-title {
+    position: relative;
+    padding-right: 32px;
+}
+
+.quantity {
+    color: var(--text-secondary);
+    margin-left: 4px;
 }
 
 .task-content {

@@ -2,6 +2,7 @@
 let appData = {
     tasks: [],
     groceries: [],
+    groceryArchive: [], // Archive for grocery items with quantity 0
     projects: [],
     passwords: [],
     taskPatterns: {},
@@ -22,6 +23,7 @@ function loadData() {
         if (!appData.taskDurations) appData.taskDurations = {};
         if (!appData.suggestions) appData.suggestions = [];
         if (!appData.dismissedSuggestions) appData.dismissedSuggestions = {};
+        if (!appData.groceryArchive) appData.groceryArchive = [];
         if (!appData.theme) appData.theme = 'light';
     } else {
         initializeSampleData();

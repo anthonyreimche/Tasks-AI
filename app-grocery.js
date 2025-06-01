@@ -1,5 +1,5 @@
 // Render grocery list
-function renderGrocery() {
+function renderGrocery(searchQuery = '') {
     // Fix any data inconsistencies before rendering
     fixGroceryData();
     
@@ -8,25 +8,110 @@ function renderGrocery() {
     // Log all grocery items for debugging
     console.log('All grocery items:', appData.groceries);
     
+    // Filter items by search query if provided
+    let filteredGroceries = appData.groceries;
+    if (searchQuery) {
+        searchQuery = searchQuery.toLowerCase();
+        // Create a list of common food types for semantic search
+        const foodTypeMap = {
+            'meat': ['chicken', 'beef', 'pork', 'turkey', 'lamb', 'steak', 'sausage'],
+            'dairy': ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'eggs'],
+            'vegetable': ['carrot', 'broccoli', 'spinach', 'lettuce', 'tomato', 'potato', 'onion', 'garlic'],
+            'fruit': ['apple', 'banana', 'orange', 'grape', 'strawberry', 'blueberry', 'pear', 'watermelon'],
+            'grain': ['bread', 'rice', 'pasta', 'cereal', 'oats', 'flour', 'tortilla'],
+            'seafood': ['fish', 'shrimp', 'salmon', 'tuna', 'crab', 'lobster'],
+            'snack': ['chips', 'cookie', 'cracker', 'popcorn', 'pretzel', 'nuts'],
+            'beverage': ['water', 'juice', 'soda', 'coffee', 'tea', 'milk', 'wine', 'beer'],
+            'condiment': ['ketchup', 'mustard', 'mayonnaise', 'sauce', 'dressing', 'oil', 'vinegar'],
+            'spice': ['salt', 'pepper', 'cinnamon', 'oregano', 'basil', 'paprika']
+        };
+        
+        // Define category mappings for search
+        const categoryMap = {
+            'produce': 'Produce',
+            'dairy': 'Dairy',
+            'meat': 'Meat',
+            'pantry': 'Pantry',
+            'frozen': 'Frozen',
+            'snacks': 'Snacks',
+            'beverages': 'Beverages',
+            'other': 'Other'
+        };
+        
+        // Find matching food types for the search query
+        let matchingFoodTypes = [];
+        for (const [type, foods] of Object.entries(foodTypeMap)) {
+            if (type.includes(searchQuery)) {
+                matchingFoodTypes = [...matchingFoodTypes, ...foods];
+            } else {
+                // Check if any food in this category matches the search query
+                const matchingFoods = foods.filter(food => food.includes(searchQuery));
+                if (matchingFoods.length > 0) {
+                    // If we found a match, add the type to our search terms
+                    matchingFoodTypes.push(type);
+                }
+            }
+        }
+        
+        // Find matching category
+        let matchingCategory = null;
+        for (const [searchTerm, categoryValue] of Object.entries(categoryMap)) {
+            if (searchTerm.includes(searchQuery) || searchQuery.includes(searchTerm)) {
+                matchingCategory = categoryValue;
+                break;
+            }
+        }
+        
+        filteredGroceries = appData.groceries.filter(item => {
+            const itemName = item.name.toLowerCase();
+            
+            // Check for category match
+            if (matchingCategory && item.category === matchingCategory) {
+                return true;
+            }
+            
+            // Direct match in name
+            if (itemName.includes(searchQuery)) {
+                return true;
+            }
+            
+            // Check for semantic matches (e.g., searching for 'meat' should return 'chicken')
+            for (const foodType of matchingFoodTypes) {
+                if (itemName.includes(foodType)) {
+                    return true;
+                }
+            }
+            
+            // Check if any food type directly matches the item name
+            for (const [type, foods] of Object.entries(foodTypeMap)) {
+                if (searchQuery === type && foods.some(food => itemName.includes(food))) {
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+    }
+    
     // Group items by status
-    const expiredItems = appData.groceries.filter(item => 
+    const expiredItems = filteredGroceries.filter(item => 
         item.inStock === true && 
         item.expiryDate && 
         getDaysUntilExpiry(item.expiryDate) < 0
     );
     
-    const expiringItems = appData.groceries.filter(item => 
+    const expiringItems = filteredGroceries.filter(item => 
         item.inStock === true && 
         item.expiryDate && 
         getDaysUntilExpiry(item.expiryDate) >= 0 &&
         getDaysUntilExpiry(item.expiryDate) <= 3
     );
     
-    const shoppingList = appData.groceries.filter(item => 
+    const shoppingList = filteredGroceries.filter(item => 
         item.inStock === false
     );
     
-    const inStockItems = appData.groceries.filter(item => 
+    const inStockItems = filteredGroceries.filter(item => 
         item.inStock === true && 
         (!item.expiryDate || getDaysUntilExpiry(item.expiryDate) > 3)
     );
@@ -185,7 +270,11 @@ function renderInStockItems(items) {
 }
 
 // Grocery functions
-function toggleGroceryItem(itemId) {
+function toggleGroceryItem(event, itemId) {
+    // Stop event propagation to prevent card click
+    if (event) {
+        event.stopPropagation();
+    }
     // Convert itemId to number if it's a string (to match how tasks work)
     if (typeof itemId === 'string') {
         itemId = parseInt(itemId);
@@ -194,6 +283,21 @@ function toggleGroceryItem(itemId) {
     // Find the item with the matching id
     const item = appData.groceries.find(g => g.id === itemId);
     if (item) {
+        // If trying to mark as in stock but no expiry date, show the expiry date modal
+        if (!item.inStock && (!item.expiryDate || item.expiryDate === '')) {
+            // Show expiry date modal
+            document.getElementById('expiry-grocery-id').value = itemId;
+            
+            // Set today as the default date
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('expiry-date').value = formattedDate;
+            
+            // Show the modal
+            openModal('expiry-date-modal');
+            return; // Exit early, don't toggle yet
+        }
+        
         // Toggle the in-stock status
         item.inStock = !item.inStock;
         
@@ -430,6 +534,30 @@ function trackGroceryUsage(itemName) {
     console.log(`Tracked usage of ${itemName} for purchase history`);
 }
 
+// Parse quantity and unit from a string (e.g., "2 bags" -> {quantity: 2, unit: "bags"})
+function parseQuantityAndUnit(quantityString) {
+    if (!quantityString) return { quantity: 1, unit: null };
+    
+    // Match a number at the beginning of the string
+    const match = quantityString.trim().match(/^(\d+(?:\.\d+)?)(\s+(.+))?$/);
+    
+    if (match) {
+        const quantity = parseFloat(match[1]);
+        let unit = match[3] ? match[3].trim() : null;
+        
+        return {
+            quantity: quantity,
+            unit: unit
+        };
+    }
+    
+    // If no number found, return the original string as the unit with quantity 1
+    return {
+        quantity: 1,
+        unit: quantityString.trim()
+    };
+}
+
 function addGroceryItem(event) {
     // Prevent the default form submission
     event.preventDefault();
@@ -444,13 +572,18 @@ function addGroceryItem(event) {
         return; // Don't proceed if no name
     }
     
+    // Parse quantity and unit
+    const quantityInput = document.getElementById('grocery-quantity').value;
+    const { quantity, unit } = parseQuantityAndUnit(quantityInput);
+    
     // Create the new item with explicit boolean values
     const item = {
         id: Date.now(), // Use numeric ID like tasks do
         name: nameInput.value.trim(),
         category: document.getElementById('grocery-category').value || 'Other',
         expiryDate: document.getElementById('grocery-expiry').value || null,
-        quantity: document.getElementById('grocery-quantity').value || null,
+        quantity: quantity,
+        unit: unit,
         inStock: document.getElementById('grocery-in-stock').checked, // Use the actual checkbox value
         addedToList: false
     };
@@ -486,14 +619,19 @@ function saveEditedGroceryItem(event) {
     if (item) {
         // Get form values
         const name = document.getElementById('edit-grocery-name').value;
-        const quantity = document.getElementById('edit-grocery-quantity').value;
+        const quantityInput = document.getElementById('edit-grocery-quantity').value;
         const category = document.getElementById('edit-grocery-category').value;
         const expiryDate = document.getElementById('edit-grocery-expiry').value || null;
         const inStock = document.getElementById('edit-grocery-in-stock').checked;
         
+        // Parse quantity and unit
+        const { quantity, unit } = parseQuantityAndUnit(quantityInput);
+        
         console.log('Saving grocery item:', {
             id: itemId,
             name,
+            quantity,
+            unit,
             inStock,
             'checkbox value': document.getElementById('edit-grocery-in-stock').checked
         });
@@ -501,6 +639,7 @@ function saveEditedGroceryItem(event) {
         // Update the item with explicit boolean values
         item.name = name;
         item.quantity = quantity;
+        item.unit = unit;
         item.category = category;
         item.expiryDate = expiryDate;
         item.inStock = Boolean(inStock); // Ensure it's a boolean
@@ -562,13 +701,304 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fix any inconsistent data
     fixGroceryData();
     
-    // Register event listeners
+    // Render the grocery list
+    renderGrocery();
+    
+    // Initialize the touch swipe functionality
+    initializeGroceryTouchSwipe();
+    
+    // Initialize the sortable functionality
+    initializeGrocerySortable();
+    
+    // Initialize grocery search functionality
+    initializeGrocerySearch();
+    
+    // Initialize grocery tab
+    initGroceryTab();
+});
+
+function initGroceryTab() {
+    // Set up event listeners
     document.getElementById('add-grocery-form').addEventListener('submit', addGroceryItem);
     document.getElementById('edit-grocery-form').addEventListener('submit', saveEditedGroceryItem);
+    document.getElementById('expiry-date-form').addEventListener('submit', submitExpiryDate);
     
-    // Initial render
-    renderGrocery();
-});
+    // Set up event delegation for quantity control buttons
+    document.getElementById('grocery-container').addEventListener('click', function(event) {
+        console.log('Click in grocery container detected', event.target);
+        
+        // Check if the clicked element is a minus button
+        if (event.target.classList.contains('grocery-minus-btn')) {
+            console.log('Minus button clicked', event.target.dataset);
+            // Get the grocery ID from the data attribute
+            const groceryId = event.target.dataset.groceryId;
+            console.log('Grocery ID from dataset:', groceryId);
+            
+            if (groceryId) {
+                decreaseGroceryQuantity(event, groceryId);
+            } else {
+                console.error('No grocery ID found on minus button');
+            }
+        }
+        
+        // Check if the clicked element is a plus button
+        if (event.target.classList.contains('grocery-plus-btn')) {
+            console.log('Plus button clicked', event.target.dataset);
+            // Get the grocery ID from the data attribute
+            const groceryId = event.target.dataset.groceryId;
+            console.log('Grocery ID from dataset:', groceryId);
+            
+            if (groceryId) {
+                increaseGroceryQuantity(event, groceryId);
+            } else {
+                console.error('No grocery ID found on plus button');
+            }
+        }
+    });
+    
+    // Log all in-stock grocery items to debug
+    console.log('Current grocery items:', appData.groceries.map(item => {
+        return {
+            id: item.id,
+            name: item.name,
+            inStock: item.inStock,
+            quantity: item.quantity
+        };
+    }));
+}
+
+// Handle the expiry date form submission
+function submitExpiryDate(event) {
+    // Prevent default form submission
+    event.preventDefault();
+    
+    // Get the grocery ID and expiry date
+    const groceryId = parseInt(document.getElementById('expiry-grocery-id').value);
+    const expiryDate = document.getElementById('expiry-date').value;
+    
+    // Find the grocery item
+    const item = appData.groceries.find(g => g.id === groceryId);
+    if (item && expiryDate) {
+        // Update the expiry date
+        item.expiryDate = expiryDate;
+        
+        // Mark as in stock
+        item.inStock = true;
+        
+        // Record purchase date
+        item.purchaseDate = new Date().toISOString();
+        
+        // Remove from shopping list if it was there
+        item.addedToList = false;
+        
+        // Track purchase for AI pattern recognition
+        if (!appData.groceryPurchasePatterns) {
+            appData.groceryPurchasePatterns = {};
+        }
+        
+        if (!appData.groceryPurchasePatterns[item.name]) {
+            appData.groceryPurchasePatterns[item.name] = [];
+        }
+        
+        // Add purchase date to patterns
+        appData.groceryPurchasePatterns[item.name].push({
+            date: new Date().toISOString(),
+            quantity: item.quantity || '1'
+        });
+        
+        // Keep only the last 10 purchases for patterns
+        if (appData.groceryPurchasePatterns[item.name].length > 10) {
+            appData.groceryPurchasePatterns[item.name] = 
+                appData.groceryPurchasePatterns[item.name].slice(-10);
+        }
+        
+        // Save data and re-render
+        saveData();
+        renderGrocery();
+        
+        // Close the modal
+        closeModal('expiry-date-modal');
+    }
+}
+
+// Decrease the quantity of a grocery item
+function decreaseGroceryQuantity(event, itemId) {
+    // Stop event propagation to prevent card click
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+    
+    console.log('Decreasing quantity for item ID:', itemId);
+    
+    // Convert itemId to number if it's a string
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
+    const item = appData.groceries.find(g => g.id === itemId);
+    if (item) {
+        console.log('Found item to decrease quantity:', item);
+        
+        // Ensure quantity is a number
+        if (typeof item.quantity !== 'number') {
+            item.quantity = parseFloat(item.quantity) || 1;
+        }
+        
+        // Decrease quantity by 1
+        item.quantity -= 1;
+        console.log(`Decreased quantity to ${item.quantity}`);
+        
+        // If quantity reaches 0, archive the item
+        if (item.quantity <= 0) {
+            console.log('Quantity is 0 or less, archiving item');
+            // Move item to archive
+            archiveGroceryItem(itemId);
+        } else {
+            // Save data and re-render
+            saveData();
+            renderGrocery();
+        }
+    } else {
+        console.error('Item not found with ID:', itemId);
+    }
+}
+
+// Increase the quantity of a grocery item
+function increaseGroceryQuantity(event, itemId) {
+    // Stop event propagation to prevent card click
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+    
+    console.log('Increasing quantity for item ID:', itemId);
+    
+    // Convert itemId to number if it's a string
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
+    const item = appData.groceries.find(g => g.id === itemId);
+    if (item) {
+        console.log('Found item to increase quantity:', item);
+        
+        // Ensure quantity is a number
+        if (typeof item.quantity !== 'number') {
+            item.quantity = parseFloat(item.quantity) || 1;
+        }
+        
+        // Increase quantity by 1
+        item.quantity += 1;
+        console.log(`Increased quantity to ${item.quantity}`);
+        
+        // Make sure the item is marked as in stock if it wasn't already
+        if (!item.inStock) {
+            item.inStock = true;
+            item.purchaseDate = new Date().toISOString();
+            
+            // If no expiry date is set, show the expiry date modal
+            if (!item.expiryDate || item.expiryDate === '') {
+                document.getElementById('expiry-grocery-id').value = itemId;
+                const today = new Date();
+                const formattedDate = today.toISOString().split('T')[0];
+                document.getElementById('expiry-date').value = formattedDate;
+                openModal('expiry-date-modal');
+                return;
+            }
+        }
+        
+        // Save data and re-render
+        saveData();
+        renderGrocery();
+        
+        // Show a notification that quantity was increased
+        showNotification(`Increased ${item.name} quantity to ${item.quantity}`, 'success');
+    } else {
+        console.error('Item not found with ID:', itemId);
+    }
+}
+
+// Archive a grocery item (move to archive and remove from active list)
+function archiveGroceryItem(itemId) {
+    // Convert itemId to number if it's a string
+    if (typeof itemId === 'string') {
+        itemId = parseInt(itemId);
+    }
+    
+    // Find the item with the matching id
+    const itemIndex = appData.groceries.findIndex(g => g.id === itemId);
+    if (itemIndex !== -1) {
+        const item = appData.groceries[itemIndex];
+        
+        // Add archive timestamp
+        item.archivedDate = new Date().toISOString();
+        
+        // Move to archive
+        appData.groceryArchive.push(item);
+        
+        // Remove from active groceries
+        appData.groceries.splice(itemIndex, 1);
+        
+        // Save data and re-render
+        saveData();
+        renderGrocery();
+        
+        // Show notification
+        showUndoNotification('Item archived', () => {
+            // Restore the archived item
+            const archivedIndex = appData.groceryArchive.findIndex(g => g.id === itemId);
+            if (archivedIndex !== -1) {
+                const archivedItem = appData.groceryArchive[archivedIndex];
+                // Reset quantity to 1 and remove archived date
+                archivedItem.quantity = 1;
+                delete archivedItem.archivedDate;
+                
+                // Move back to active groceries
+                appData.groceries.push(archivedItem);
+                appData.groceryArchive.splice(archivedIndex, 1);
+                
+                saveData();
+                renderGrocery();
+            }
+        });
+    }
+}
+
+// Initialize grocery search functionality
+function initializeGrocerySearch() {
+    const searchInput = document.getElementById('grocery-search');
+    const clearButton = document.getElementById('grocery-search-clear');
+    
+    if (!searchInput || !clearButton) return;
+    
+    // Add event listener for search input
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        renderGrocery(query);
+        
+        // Show/hide clear button based on input
+        if (query.length > 0) {
+            clearButton.style.display = 'flex';
+        } else {
+            clearButton.style.display = 'none';
+        }
+    });
+    
+    // Add event listener for clear button
+    clearButton.addEventListener('click', function() {
+        searchInput.value = '';
+        renderGrocery();
+        this.style.display = 'none';
+    });
+    
+    // Initially hide the clear button
+    clearButton.style.display = 'none';
+}
 
 // Initialize touch swipe for grocery items
 function initializeGroceryTouchSwipe() {
