@@ -3,6 +3,7 @@ let appData = {
     tasks: [],
     groceries: [],
     groceryArchive: [], // Archive for grocery items with quantity 0
+    taskArchive: [], // Archive for completed tasks
     projects: [],
     passwords: [],
     taskPatterns: {},
@@ -24,6 +25,7 @@ function loadData() {
         if (!appData.suggestions) appData.suggestions = [];
         if (!appData.dismissedSuggestions) appData.dismissedSuggestions = {};
         if (!appData.groceryArchive) appData.groceryArchive = [];
+        if (!appData.taskArchive) appData.taskArchive = [];
         if (!appData.theme) appData.theme = 'light';
     } else {
         initializeSampleData();
@@ -36,6 +38,38 @@ function loadData() {
 function saveData() {
     localStorage.setItem('appData', JSON.stringify(appData));
     showSyncStatus('Saved', true);
+}
+
+// Show notification to the user
+function showNotification(message, type = 'info') {
+    console.log(`Notification (${type}): ${message}`);
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-message">${message}</div>
+    `;
+    
+    // Add to document
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateY(0)';
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateY(-20px)';
+        notification.style.opacity = '0';
+        
+        // Remove from DOM after animation completes
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
 }
 
 // Initialize sample data

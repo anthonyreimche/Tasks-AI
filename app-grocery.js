@@ -847,9 +847,12 @@ function decreaseGroceryQuantity(event, itemId) {
             item.quantity = parseFloat(item.quantity) || 1;
         }
         
+        // Store unit for notification
+        const unit = item.unit ? item.unit : '';
+        
         // Decrease quantity by 1
         item.quantity -= 1;
-        console.log(`Decreased quantity to ${item.quantity}`);
+        console.log(`Decreased quantity to ${item.quantity} ${unit}`);
         
         // If quantity reaches 0, archive the item
         if (item.quantity <= 0) {
@@ -857,6 +860,13 @@ function decreaseGroceryQuantity(event, itemId) {
             // Move item to archive
             archiveGroceryItem(itemId);
         } else {
+            // Show notification with unit included
+            if (unit) {
+                showNotification(`Decreased ${item.name} quantity to ${item.quantity} ${unit}`, 'info');
+            } else {
+                showNotification(`Decreased ${item.name} quantity to ${item.quantity}`, 'info');
+            }
+            
             // Save data and re-render
             saveData();
             renderGrocery();
@@ -892,9 +902,12 @@ function increaseGroceryQuantity(event, itemId) {
             item.quantity = parseFloat(item.quantity) || 1;
         }
         
+        // Store unit for notification
+        const unit = item.unit ? item.unit : '';
+        
         // Increase quantity by 1
         item.quantity += 1;
-        console.log(`Increased quantity to ${item.quantity}`);
+        console.log(`Increased quantity to ${item.quantity} ${unit}`);
         
         // Make sure the item is marked as in stock if it wasn't already
         if (!item.inStock) {
@@ -916,8 +929,12 @@ function increaseGroceryQuantity(event, itemId) {
         saveData();
         renderGrocery();
         
-        // Show a notification that quantity was increased
-        showNotification(`Increased ${item.name} quantity to ${item.quantity}`, 'success');
+        // Show a notification that quantity was increased with unit included
+        if (unit) {
+            showNotification(`Increased ${item.name} quantity to ${item.quantity} ${unit}`, 'success');
+        } else {
+            showNotification(`Increased ${item.name} quantity to ${item.quantity}`, 'success');
+        }
     } else {
         console.error('Item not found with ID:', itemId);
     }

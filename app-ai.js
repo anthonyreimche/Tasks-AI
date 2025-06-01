@@ -1081,10 +1081,15 @@ function initializeTouchSwipe() {
 
 // AI Analysis
 function startAIAnalysis() {
+    console.log('Starting AI analysis');
+    
     // Run AI analysis every 5 minutes
     setInterval(() => {
         // First analyze user preferences to adjust AI behavior
         analyzeGroceryUsagePatterns();
+        
+        // Learn from archived tasks for AI improvements
+        learnFromArchivedTasks();
         
         // Task analysis
         analyzeTaskPatterns();
@@ -1104,8 +1109,12 @@ function startAIAnalysis() {
     // First analyze user preferences to adjust AI behavior
     analyzeGroceryUsagePatterns();
     
+    // Learn from archived tasks immediately
+    learnFromArchivedTasks();
+    
     // Task analysis
     analyzeTaskPatterns();
+    estimateTaskDurations();
 }
 
 function estimateTaskDurations() {
@@ -1116,6 +1125,132 @@ function estimateTaskDurations() {
     // to estimate how long each task might take
     
     // No suggestions created for now as this is a placeholder
+}
+
+// Function to learn from archived tasks for AI improvements
+function learnFromArchivedTasks() {
+    console.log('Learning from archived tasks');
+    
+    // Skip if no archived tasks
+    if (!appData.taskArchive || appData.taskArchive.length === 0) {
+        console.log('No archived tasks to learn from');
+        return;
+    }
+    
+    // Get recently archived tasks (last 24 hours)
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    
+    const recentlyArchived = appData.taskArchive.filter(task => {
+        const archivedDate = new Date(task.archivedDate);
+        return archivedDate >= oneDayAgo;
+    });
+    
+    if (recentlyArchived.length === 0) {
+        console.log('No recently archived tasks to learn from');
+        return;
+    }
+    
+    console.log(`Learning from ${recentlyArchived.length} recently archived tasks`);
+    
+    // Learn task name patterns for future suggestions
+    learnTaskNamePatterns(recentlyArchived);
+    
+    // Learn task completion patterns for duration estimation
+    learnTaskCompletionPatterns(recentlyArchived);
+    
+    // Learn task category patterns
+    learnTaskCategoryPatterns(recentlyArchived);
+}
+
+// Helper function to learn task name patterns for future suggestions
+function learnTaskNamePatterns(archivedTasks) {
+    console.log('Learning task name patterns');
+    
+    // Extract common words and phrases from task names
+    const taskNames = archivedTasks.map(task => task.title.toLowerCase());
+    
+    // Store common words for future task name suggestions
+    if (!appData.commonTaskWords) {
+        appData.commonTaskWords = {};
+    }
+    
+    // Simple word frequency analysis
+    taskNames.forEach(name => {
+        // Remove common stop words
+        const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for'];
+        const words = name.split(/\s+/).filter(word => 
+            word.length > 2 && !stopWords.includes(word)
+        );
+        
+        words.forEach(word => {
+            if (!appData.commonTaskWords[word]) {
+                appData.commonTaskWords[word] = 1;
+            } else {
+                appData.commonTaskWords[word]++;
+            }
+        });
+    });
+    
+    console.log('Updated common task words dictionary');
+    saveData();
+}
+
+// Helper function to learn task completion patterns for duration estimation
+function learnTaskCompletionPatterns(archivedTasks) {
+    console.log('Learning task completion patterns');
+    
+    // Analyze how long tasks took to complete relative to their due dates
+    archivedTasks.forEach(task => {
+        if (task.dueDate && task.completedDate) {
+            const dueDate = new Date(task.dueDate);
+            const completedDate = new Date(task.completedDate);
+            const durationDays = Math.round((completedDate - dueDate) / (1000 * 60 * 60 * 24));
+            
+            // Store by category
+            const category = task.category || 'Uncategorized';
+            if (!appData.taskDurations) appData.taskDurations = {};
+            if (!appData.taskDurations[category]) appData.taskDurations[category] = [];
+            
+            // Add to durations if not already there
+            const existingEntry = appData.taskDurations[category].find(entry => entry.taskId === task.id);
+            if (!existingEntry) {
+                appData.taskDurations[category].push({
+                    taskId: task.id,
+                    title: task.title,
+                    dueDate: task.dueDate,
+                    completedDate: task.completedDate,
+                    durationDays: durationDays
+                });
+            }
+        }
+    });
+    
+    console.log('Updated task duration patterns');
+    saveData();
+}
+
+// Helper function to learn task category patterns
+function learnTaskCategoryPatterns(archivedTasks) {
+    console.log('Learning task category patterns');
+    
+    // Track which categories are most commonly used
+    if (!appData.categoryFrequency) {
+        appData.categoryFrequency = {};
+    }
+    
+    archivedTasks.forEach(task => {
+        const category = task.category || 'Uncategorized';
+        
+        if (!appData.categoryFrequency[category]) {
+            appData.categoryFrequency[category] = 1;
+        } else {
+            appData.categoryFrequency[category]++;
+        }
+    });
+    
+    console.log('Updated category frequency data');
+    saveData();
 }
 
 // Function to render grocery-specific AI suggestions

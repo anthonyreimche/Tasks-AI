@@ -493,8 +493,10 @@ cardFactory.registerCardType('grocery', {
         console.log(`Rendering quantity buttons for grocery item: ${data.id} - ${data.name}`);
         
         return `<div class="grocery-title-container">
-            <span class="grocery-name">${data.name}</span>
-            ${quantityText}
+            <div class="grocery-title-text">
+                <span class="grocery-name">${data.name}</span>
+                ${quantityText}
+            </div>
             <div class="grocery-quantity-controls">
                 ${minusButton}
                 ${plusButton}

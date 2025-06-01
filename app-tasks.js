@@ -310,6 +310,16 @@ function toggleTaskCompletion(event, taskId) {
     if (appData.tasks[taskIndex].completed) {
         appData.tasks[taskIndex].completedDate = new Date().toISOString();
         
+        // Set scheduled archive time (5 minutes from now)
+        const archiveTime = new Date();
+        archiveTime.setMinutes(archiveTime.getMinutes() + 5);
+        appData.tasks[taskIndex].scheduledArchiveTime = archiveTime.toISOString();
+        
+        console.log(`Task "${appData.tasks[taskIndex].title}" completed and scheduled for archiving at ${archiveTime.toLocaleTimeString()}`);
+        
+        // Show notification about the scheduled archiving
+        showNotification(`Task "${appData.tasks[taskIndex].title}" will be archived in 5 minutes`, 'info');
+        
         // Track task duration if it had a due date
         if (appData.tasks[taskIndex].dueDate) {
             if (!appData.taskDurations) appData.taskDurations = {};
@@ -331,8 +341,9 @@ function toggleTaskCompletion(event, taskId) {
             });
         }
     } else {
-        // If task is uncompleted, remove completion date
+        // If task is uncompleted, remove completion date and scheduled archive time
         appData.tasks[taskIndex].completedDate = null;
+        appData.tasks[taskIndex].scheduledArchiveTime = null;
     }
     
     // Save data
@@ -417,6 +428,52 @@ function reorderTasks(newOrder) {
     saveData();
     renderTasks();
 }
+
+// Check for tasks that need to be archived (completed tasks after 5 minutes)
+function archiveCompletedTasks() {
+    const now = new Date();
+    const tasksToArchive = [];
+    
+    // Find tasks that have passed their scheduled archive time
+    appData.tasks.forEach(task => {
+        if (task.completed && task.scheduledArchiveTime) {
+            const archiveTime = new Date(task.scheduledArchiveTime);
+            if (now >= archiveTime) {
+                tasksToArchive.push(task.id);
+            }
+        }
+    });
+    
+    // Archive the tasks
+    if (tasksToArchive.length > 0) {
+        console.log(`Archiving ${tasksToArchive.length} completed tasks`);
+        
+        tasksToArchive.forEach(taskId => {
+            const taskIndex = appData.tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                // Copy task to archive
+                const task = appData.tasks[taskIndex];
+                appData.taskArchive.push({
+                    ...task,
+                    archivedDate: new Date().toISOString()
+                });
+                
+                // Remove from active tasks
+                appData.tasks.splice(taskIndex, 1);
+                
+                // Log for AI learning
+                console.log(`Task archived for AI learning: ${task.title}`);
+            }
+        });
+        
+        // Save data and re-render
+        saveData();
+        renderTasks();
+    }
+}
+
+// Run archive check every minute
+setInterval(archiveCompletedTasks, 60 * 1000);
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
